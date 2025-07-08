@@ -43,18 +43,80 @@ if 'show_graph' not in st.session_state:
 
 # Sidebar navigation
 with st.sidebar:
-    st.title("🚇 トンネル安定性解析")
+    # App logo and title
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 1rem 0;">
+            <h1 style="font-size: 1.5rem; margin: 0;">🚇</h1>
+            <h2 style="font-size: 1.2rem; margin: 0;">トンネル安定性解析</h2>
+            <p style="font-size: 0.8rem; color: #666; margin: 0.5rem 0;">村山の式による評価</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    st.markdown("---")
+    
+    # Navigation menu
+    st.markdown("### 📍 ナビゲーション")
     page = st.radio(
-        "ページ選択",
-        ["計算", "理論説明", "物性値の根拠"],
+        "ページを選択してください",
+        ["🧮 計算ツール", "📚 理論説明", "📊 物性値の根拠"],
         label_visibility="collapsed"
+    )
+    
+    # Map page names for internal use
+    page_map = {
+        "🧮 計算ツール": "計算",
+        "📚 理論説明": "理論説明",
+        "📊 物性値の根拠": "物性値の根拠"
+    }
+    page = page_map[page]
+    
+    st.markdown("---")
+    
+    # Additional information
+    st.markdown("### ℹ️ 情報")
+    st.info(
+        """
+        **バージョン**: v0.1  
+        **開発**: 2024  
+        **手法**: 村山の式 (1984)
+        """
+    )
+    
+    # Links section
+    st.markdown("### 🔗 リンク")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("[📖 使い方](https://github.com/dobocreate/classical_tunnel_analyzer)")
+    with col2:
+        st.markdown("[💻 GitHub](https://github.com/dobocreate/classical_tunnel_analyzer)")
+    
+    # Footer
+    st.markdown("---")
+    st.markdown(
+        """
+        <div style="text-align: center; font-size: 0.8rem; color: #666;">
+            <p>© 2024 Classical Tunnel Analyzer</p>
+            <p>Powered by Streamlit</p>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
 # Main page based on selection
 if page == "計算":
-    # Header
-    st.title("🚇 トンネル切羽安定性評価")
-    st.markdown("---")
+    # Header with description
+    st.title("🧮 計算ツール")
+    st.markdown(
+        """
+        <p style="font-size: 1.1rem; color: #555; margin-bottom: 2rem;">
+        村山の式を用いてトンネル切羽の安定性を評価します
+        </p>
+        """,
+        unsafe_allow_html=True
+    )
     
     # Main container with two columns
     col_input, col_result = st.columns([2, 1])
@@ -375,8 +437,15 @@ if page == "計算":
             st.info("💡 左側のパラメータを入力して「計算実行」をクリックしてください")
 
 elif page == "理論説明":
-    st.title("📚 村山の式による切羽安定性評価理論")
-    st.markdown("---")
+    st.title("📚 理論説明")
+    st.markdown(
+        """
+        <p style="font-size: 1.1rem; color: #555; margin-bottom: 2rem;">
+        村山の式による切羽安定性評価の理論的背景
+        </p>
+        """,
+        unsafe_allow_html=True
+    )
     
     # Theory explanation
     st.markdown("## 1. 村山の式の概要")
@@ -440,8 +509,15 @@ elif page == "理論説明":
     """)
 
 elif page == "物性値の根拠":
-    st.title("📊 地盤物性値の標準値と根拠")
-    st.markdown("---")
+    st.title("📊 物性値の根拠")
+    st.markdown(
+        """
+        <p style="font-size: 1.1rem; color: #555; margin-bottom: 2rem;">
+        地盤物性値の標準値と決定根拠
+        </p>
+        """,
+        unsafe_allow_html=True
+    )
     
     st.markdown("## 1. 地盤種別ごとの標準物性値")
     
@@ -522,5 +598,13 @@ elif page == "物性値の根拠":
     """)
 
 # Footer
-st.markdown("---")
-st.caption("村山式トンネル安定性解析 v0.1 | 村山 (1984) に基づく")
+if page in ["計算", "理論説明", "物性値の根拠"]:
+    st.markdown("---")
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 2rem 0; color: #666;">
+            <p style="margin: 0;">村山式トンネル安定性解析 v0.1 | 村山 (1984) に基づく</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
