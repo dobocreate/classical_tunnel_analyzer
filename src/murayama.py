@@ -117,12 +117,12 @@ class MurayamaCalculator:
             else:
                 # Iterative solution for theta_0
                 theta = 0.1  # Initial guess
-                for _ in range(100):
+                for _ in range(self.params.max_iterations):
                     f = r0 * (np.exp(theta * np.tan(phi_rad)) - 1) * np.cos(theta) - H / 2
                     df = r0 * (np.exp(theta * np.tan(phi_rad)) * np.tan(phi_rad) * np.cos(theta) 
                               - np.exp(theta * np.tan(phi_rad)) * np.sin(theta) + np.sin(theta))
                     theta_new = theta - f / df
-                    if abs(theta_new - theta) < 1e-6:
+                    if abs(theta_new - theta) < self.params.tolerance:
                         return theta_new
                     theta = theta_new
                 return theta
@@ -137,13 +137,13 @@ class MurayamaCalculator:
             else:
                 # Iterative solution for theta_1
                 theta = theta_0 + 0.5  # Initial guess
-                for _ in range(100):
+                for _ in range(self.params.max_iterations):
                     r_theta = r0 * np.exp(theta * np.tan(phi_rad))
                     r_theta_0 = r0 * np.exp(theta_0 * np.tan(phi_rad))
                     f = r_theta * np.sin(theta) - r_theta_0 * np.sin(theta_0) - B
                     df = r_theta * (np.tan(phi_rad) * np.sin(theta) + np.cos(theta))
                     theta_new = theta - f / df
-                    if abs(theta_new - theta) < 1e-6:
+                    if abs(theta_new - theta) < self.params.tolerance:
                         return theta_new
                     theta = theta_new
                 return theta

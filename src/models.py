@@ -87,6 +87,24 @@ class MurayamaInput(BaseModel):
         default=0.05, 
         description="Step size for B iteration [m]"
     )
+    n_divisions: int = Field(
+        ge=10, 
+        le=1000, 
+        default=100, 
+        description="Number of divisions for numerical integration"
+    )
+    max_iterations: int = Field(
+        ge=10, 
+        le=1000, 
+        default=100, 
+        description="Maximum iterations for convergence"
+    )
+    tolerance: float = Field(
+        gt=0, 
+        le=0.1, 
+        default=1e-6, 
+        description="Convergence tolerance"
+    )
 
 
 class MurayamaResult(BaseModel):
