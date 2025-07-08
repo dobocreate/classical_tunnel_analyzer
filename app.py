@@ -21,16 +21,23 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Add minimal CSS for section styling
+# Add CSS for section styling
 st.markdown("""
 <style>
     /* セクションのスタイリング */
-    div[data-testid="stVerticalBlock"] > div:has(> div > div > h3) {
+    .section-container {
         background-color: #f8f9fa;
         border: 1px solid #dee2e6;
         border-radius: 0.5rem;
-        padding: 1rem;
+        padding: 1.5rem;
         margin-bottom: 1rem;
+    }
+    
+    /* expanderのスタイル調整 */
+    div[data-testid="stExpander"] {
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        background-color: #f8f9fa;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -87,7 +94,7 @@ page = st.session_state.page
 # Main page based on selection
 if page == "計算":
     # Header
-    st.title("🧮 計算ツール")
+    st.title("🧮 トンネルの安定計算")
     st.markdown("村山の式を用いてトンネル切羽の安定性を評価します")
     
     # Main container with two columns
@@ -103,106 +110,109 @@ if page == "計算":
             """)
         
         # Section 1: Tunnel Geometry
-        with st.container():
-            st.markdown("### 1️⃣ トンネル諸元")
-            # Use container with background color to create box-like appearance
-            with st.container():
-                col1, col2 = st.columns(2)
-                with col1:
-                    height = st.number_input(
-                        "トンネル切羽高さ H (m) *", 
-                        min_value=0.1, 
-                        max_value=50.0, 
-                        value=10.0, 
-                        step=0.5,
-                        help="トンネル切羽の高さ（通常: 8〜12m）"
-                    )
-                with col2:
-                    r0 = st.number_input(
-                        "初期半径 r₀ (m) *", 
-                        min_value=0.1, 
-                        max_value=20.0, 
-                        value=5.0, 
-                        step=0.5,
-                        help="対数螺旋の初期半径"
-                    )
+        st.markdown("### 1️⃣ トンネル諸元")
+        st.markdown('<div class="section-container">', unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            height = st.number_input(
+                "トンネル切羽高さ H (m) *", 
+                min_value=0.1, 
+                max_value=50.0, 
+                value=10.0, 
+                step=0.5,
+                help="トンネル切羽の高さ（通常: 8〜12m）"
+            )
+        with col2:
+            r0 = st.number_input(
+                "初期半径 r₀ (m) *", 
+                min_value=0.1, 
+                max_value=20.0, 
+                value=5.0, 
+                step=0.5,
+                help="対数螺旋の初期半径"
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("")  # Spacing
         
         # Section 2: Soil Parameters
-        with st.container():
-            st.markdown("### 2️⃣ 地山物性値")
-            with st.container():
-                # Preset selection
-                presets = get_default_presets()
-                preset_names = ["カスタム"] + [p.name for p in presets]
-                selected_preset = st.selectbox("地盤タイプを選択", preset_names)
-                
-                # Initialize default values
-                if selected_preset != "カスタム":
-                    preset = next(p for p in presets if p.name == selected_preset)
-                    default_gamma = preset.soil.gamma
-                    default_c = preset.soil.c
-                    default_phi = preset.soil.phi
-                else:
-                    default_gamma = 20.0
-                    default_c = 30.0
-                    default_phi = 30.0
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    c = st.number_input(
-                        "粘着力 c (kPa) *", 
-                        min_value=0.0, 
-                        max_value=200.0, 
-                        value=default_c, 
-                        step=5.0,
-                        help="地盤の粘着力"
-                    )
-                with col2:
-                    phi = st.number_input(
-                        "内部摩擦角 φ (°) *", 
-                        min_value=0.0, 
-                        max_value=60.0, 
-                        value=default_phi, 
-                        step=1.0,
-                        help="地盤の内部摩擦角"
-                    )
-                with col3:
-                    gamma = st.number_input(
-                        "単位体積重量 γ (kN/m³) *", 
-                        min_value=10.0, 
-                        max_value=30.0, 
-                        value=default_gamma, 
-                        step=0.5,
-                        help="地盤の有効単位体積重量"
-                    )
+        st.markdown("### 2️⃣ 地山物性値")
+        st.markdown('<div class="section-container">', unsafe_allow_html=True)
+        
+        # Preset selection
+        presets = get_default_presets()
+        preset_names = ["カスタム"] + [p.name for p in presets]
+        selected_preset = st.selectbox("地盤タイプを選択", preset_names)
+        
+        # Initialize default values
+        if selected_preset != "カスタム":
+            preset = next(p for p in presets if p.name == selected_preset)
+            default_gamma = preset.soil.gamma
+            default_c = preset.soil.c
+            default_phi = preset.soil.phi
+        else:
+            default_gamma = 20.0
+            default_c = 30.0
+            default_phi = 30.0
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            c = st.number_input(
+                "粘着力 c (kPa) *", 
+                min_value=0.0, 
+                max_value=200.0, 
+                value=default_c, 
+                step=5.0,
+                help="地盤の粘着力"
+            )
+        with col2:
+            phi = st.number_input(
+                "内部摩擦角 φ (°) *", 
+                min_value=0.0, 
+                max_value=60.0, 
+                value=default_phi, 
+                step=1.0,
+                help="地盤の内部摩擦角"
+            )
+        with col3:
+            gamma = st.number_input(
+                "単位体積重量 γ (kN/m³) *", 
+                min_value=10.0, 
+                max_value=30.0, 
+                value=default_gamma, 
+                step=0.5,
+                help="地盤の有効単位体積重量"
+            )
+        
+        st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("")  # Spacing
         
         # Section 3: Loading Conditions
-        with st.container():
-            st.markdown("### 3️⃣ 荷重条件")
-            with st.container():
-                col1, col2 = st.columns(2)
-                with col1:
-                    u = st.number_input(
-                        "水圧 u (kPa)", 
-                        min_value=0.0, 
-                        max_value=1000.0, 
-                        value=0.0, 
-                        step=10.0,
-                        help="間隙水圧（通常: 0）"
-                    )
-                with col2:
-                    sigma_v = st.number_input(
-                        "上載荷重 σᵥ (kPa)", 
-                        min_value=0.0, 
-                        max_value=5000.0, 
-                        value=0.0, 
-                        step=50.0,
-                        help="鉛直上載荷重（通常: 0）"
-                    )
+        st.markdown("### 3️⃣ 荷重条件")
+        st.markdown('<div class="section-container">', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            u = st.number_input(
+                "水圧 u (kPa)", 
+                min_value=0.0, 
+                max_value=1000.0, 
+                value=0.0, 
+                step=10.0,
+                help="間隙水圧（通常: 0）"
+            )
+        with col2:
+            sigma_v = st.number_input(
+                "上載荷重 σᵥ (kPa)", 
+                min_value=0.0, 
+                max_value=5000.0, 
+                value=0.0, 
+                step=50.0,
+                help="鉛直上載荷重（通常: 0）"
+            )
+        
+        st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("")  # Spacing
         
