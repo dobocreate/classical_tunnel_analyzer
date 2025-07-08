@@ -66,23 +66,6 @@ st.markdown("""
 
 # Sidebar navigation
 with st.sidebar:
-    # App header
-    st.markdown(
-        """
-        <div style="text-align: center; padding: 1rem 0 2rem 0;">
-            <h1 style="font-size: 2rem; margin: 0;">🚇</h1>
-            <h2 style="font-size: 1.2rem; margin: 0.5rem 0 0 0;">トンネル安定性解析</h2>
-            <p style="font-size: 0.8rem; color: #666; margin: 0.5rem 0 0 0;">村山の式による評価</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    
-    st.markdown("---")
-    
-    # Navigation buttons
-    st.markdown("### メニュー")
-    
     # 計算ツールボタン
     if st.button("🧮 計算ツール", use_container_width=True, type="primary" if st.session_state.page == "計算" else "secondary"):
         st.session_state.page = "計算"
@@ -97,38 +80,6 @@ with st.sidebar:
     if st.button("📊 物性値の根拠", use_container_width=True, type="primary" if st.session_state.page == "物性値の根拠" else "secondary"):
         st.session_state.page = "物性値の根拠"
         st.rerun()
-    
-    st.markdown("---")
-    
-    # Information section
-    with st.container():
-        st.markdown("### 情報")
-        st.info(
-            """
-            **バージョン**: v0.1  
-            **最終更新**: 2024年  
-            **計算手法**: 村山の式 (1984)
-            """
-        )
-    
-    # Links
-    st.markdown("### リンク")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("[📖 使い方](https://github.com/dobocreate/classical_tunnel_analyzer)")
-    with col2:
-        st.markdown("[💻 GitHub](https://github.com/dobocreate/classical_tunnel_analyzer)")
-    
-    # Footer
-    st.markdown(
-        """
-        <div style="text-align: center; padding-top: 2rem; font-size: 0.8rem; color: #666;">
-            <hr style="margin: 1rem 0; border: none; border-top: 1px solid #ddd;">
-            <p>© 2024 Classical Tunnel Analyzer</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
 # Get current page from session state
 page = st.session_state.page
