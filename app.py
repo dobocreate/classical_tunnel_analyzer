@@ -31,24 +31,17 @@ st.markdown("""
         background-color: #f8f9fa;
     }
     
-    /* 空のexpanderラベルを非表示にする */
-    div[data-testid="stExpander"] > details > summary:empty {
-        display: none !important;
-    }
-    
-    /* expanderの矢印を非表示にする */
-    div[data-testid="stExpander"] > details > summary > svg {
-        display: none !important;
-    }
-    
-    /* expanderのヘッダー部分のパディングを削除 */
-    div[data-testid="stExpander"] > details > summary {
+    /* セクション用expanderのスタイル */
+    .section-expander + div[data-testid="stExpander"] > details > summary {
         padding: 0 !important;
         min-height: 0 !important;
     }
     
-    /* expanderのコンテンツ部分のパディング調整 */
-    div[data-testid="stExpander"] > details > div {
+    .section-expander + div[data-testid="stExpander"] > details > summary > svg {
+        display: none !important;
+    }
+    
+    .section-expander + div[data-testid="stExpander"] > details > div {
         padding-top: 1rem !important;
     }
 </style>
@@ -125,6 +118,7 @@ if page == "計算":
         with st.container():
             st.markdown("### 1️⃣ トンネル諸元")
             # Use an expander that's always expanded and can't be collapsed
+            st.markdown('<div class="section-expander">', unsafe_allow_html=True)
             expander1 = st.expander("", expanded=True)
             with expander1:
                 col1, col2 = st.columns(2)
@@ -146,12 +140,14 @@ if page == "計算":
                         step=0.5,
                         help="対数螺旋の初期半径"
                     )
+            st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("")  # Spacing
         
         # Section 2: Soil Parameters
         with st.container():
             st.markdown("### 2️⃣ 地山物性値")
+            st.markdown('<div class="section-expander">', unsafe_allow_html=True)
             expander2 = st.expander("", expanded=True)
             with expander2:
                 # Preset selection
@@ -198,12 +194,14 @@ if page == "計算":
                         step=0.5,
                         help="地盤の有効単位体積重量"
                     )
+            st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("")  # Spacing
         
         # Section 3: Loading Conditions
         with st.container():
             st.markdown("### 3️⃣ 荷重条件")
+            st.markdown('<div class="section-expander">', unsafe_allow_html=True)
             expander3 = st.expander("", expanded=True)
             with expander3:
                 col1, col2 = st.columns(2)
@@ -225,6 +223,7 @@ if page == "計算":
                         step=50.0,
                         help="鉛直上載荷重（通常: 0）"
                     )
+            st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("")  # Spacing
         
