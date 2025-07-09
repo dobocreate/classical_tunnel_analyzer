@@ -299,6 +299,22 @@ if page == "計算":
             )
             
             if calculate_button:
+                # Store all input parameters in session state
+                st.session_state.last_calculation_params = {
+                    'height': height,
+                    'tunnel_depth': tunnel_depth,
+                    'gamma': gamma,
+                    'c': c,
+                    'phi': phi,
+                    'u': u,
+                    'sigma_v': sigma_v,
+                    'x_start': x_start if 'x_start' in locals() else -10.0,
+                    'x_end': x_end if 'x_end' in locals() else 10.0,
+                    'x_step': x_step if 'x_step' in locals() else 0.5,
+                    'max_iterations': max_iterations if 'max_iterations' in locals() else 100,
+                    'tolerance': tolerance if 'tolerance' in locals() else 1e-6,
+                    'surcharge_method': surcharge_method if 'surcharge_method' in locals() else SurchargeMethod.SIMPLE.value
+                }
                 st.session_state.calculate_clicked = True
     
     # Right column - Results section
@@ -306,27 +322,43 @@ if page == "計算":
         st.markdown("### 📊 評価結果")
         
         # Perform calculation if button was clicked
-        if st.session_state.calculate_clicked:
+        if st.session_state.calculate_clicked and 'last_calculation_params' in st.session_state:
+            # Reset the flag immediately to prevent re-calculation
+            st.session_state.calculate_clicked = False
+            
+            # Get stored parameters
+            params = st.session_state.last_calculation_params
+            
             # Create input objects
-            geometry = TunnelGeometry(height=height, tunnel_depth=tunnel_depth)
-            soil = SoilParameters(gamma=gamma, c=c, phi=phi)
-            loading = LoadingConditions(u=u, sigma_v=sigma_v)
+            geometry = TunnelGeometry(
+                height=params['height'], 
+                tunnel_depth=params['tunnel_depth']
+            )
+            soil = SoilParameters(
+                gamma=params['gamma'], 
+                c=params['c'], 
+                phi=params['phi']
+            )
+            loading = LoadingConditions(
+                u=params['u'], 
+                sigma_v=params['sigma_v']
+            )
+            
             # Convert surcharge method string to enum
             surcharge_method_enum = SurchargeMethod.SIMPLE
-            if 'surcharge_method' in locals():
-                if surcharge_method == SurchargeMethod.TERZAGHI.value:
-                    surcharge_method_enum = SurchargeMethod.TERZAGHI
+            if params['surcharge_method'] == SurchargeMethod.TERZAGHI.value:
+                surcharge_method_enum = SurchargeMethod.TERZAGHI
             
             murayama_input = MurayamaInput(
                 geometry=geometry,
                 soil=soil,
                 loading=loading,
-                x_start=x_start if 'x_start' in locals() else -10.0,
-                x_end=x_end if 'x_end' in locals() else 10.0,
-                x_step=x_step if 'x_step' in locals() else 0.5,
+                x_start=params['x_start'],
+                x_end=params['x_end'],
+                x_step=params['x_step'],
                 n_divisions=100,  # Fixed value for scipy.quad
-                max_iterations=max_iterations if 'max_iterations' in locals() else 100,
-                tolerance=tolerance if 'tolerance' in locals() else 1e-6,
+                max_iterations=params['max_iterations'],
+                tolerance=params['tolerance'],
                 surcharge_method=surcharge_method_enum
             )
             
@@ -445,7 +477,35 @@ if page == "計算":
                 st.plotly_chart(fig, use_container_width=True)
         
         else:
+            # Show placeholder message
             st.info("💡 左側のパラメータを入力して「計算実行」をクリックしてください")
+            
+            # Show example result format
+            with st.container():
+                st.markdown("#### 結果表示エリア")
+                st.markdown("""
+                計算を実行すると、ここに以下の情報が表示されます：
+                - 必要支保圧力の評価
+                - 切羽の安定性判定
+                - 詳細な計算結果
+                - P-x曲線グラフ（オプション）
+                """)
+                
+                # Show input guide
+                with st.expander("入力ガイド"):
+                    st.markdown("""
+                    **基本的な入力項目**
+                    1. トンネル諸元：切羽高さと土被り
+                    2. 地山物性値：地盤タイプまたはカスタム値
+                    3. 荷重条件：通常は初期値(0)のまま
+                    
+                    **詳細設定（オプション）**
+                    - 探索範囲：より広範囲の解析が必要な場合に調整
+                    - 収束設定：計算が収束しない場合に調整
+                    - 上載荷重計算：より詳細な検討時にテルツァギー法を選択
+                    """)
+            
+            st.markdown("")
 
 elif page == "理論説明":
     st.title("📚 理論説明")
