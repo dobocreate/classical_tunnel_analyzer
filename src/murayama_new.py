@@ -14,9 +14,13 @@ class ImprovedMurayamaCalculator:
         self.params = params
         self.g = 9.81  # Gravitational acceleration [m/s²]
         
-    def calculate_stability(self) -> MurayamaResult:
+    def calculate_stability(self, progress_callback=None) -> MurayamaResult:
         """
         Calculate required support pressure using improved Murayama method.
+        
+        Args:
+            progress_callback: Optional callback function for progress updates
+                              callback(x_i, geometry, P, is_critical)
         
         Returns:
             MurayamaResult containing x values, P values, and critical values
@@ -27,6 +31,7 @@ class ImprovedMurayamaCalculator:
         x_critical = 0
         critical_slip_surface = {}
         convergence_failures = 0
+        animation_frames = []
         
         # Get parameters
         H = self.params.geometry.height
@@ -42,7 +47,7 @@ class ImprovedMurayamaCalculator:
             self.params.x_step
         )
         
-        for x_i in x_range:
+        for idx, x_i in enumerate(x_range):
             # Step 2: Determine geometric shape
             geometry = self._determine_geometry(x_i, H, D_t, phi_rad)
             
@@ -61,10 +66,26 @@ class ImprovedMurayamaCalculator:
                 P_values.append(P)
                 
                 # Step 5: Update maximum
+                is_critical = False
                 if P > P_max:
                     P_max = P
                     x_critical = x_i
                     critical_slip_surface = geometry
+                    is_critical = True
+                
+                # Store animation frame data
+                frame_data = {
+                    'x_i': x_i,
+                    'geometry': geometry,
+                    'P': P,
+                    'is_critical': is_critical,
+                    'progress': (idx + 1) / len(x_range)
+                }
+                animation_frames.append(frame_data)
+                
+                # Call progress callback if provided
+                if progress_callback:
+                    progress_callback(frame_data)
         
         # Calculate safety factor if needed
         safety_factor = self._calculate_safety_factor(P_max)
@@ -76,6 +97,9 @@ class ImprovedMurayamaCalculator:
             "convergence_failures": convergence_failures,
             "convergence_rate": len(x_values) / len(x_range) * 100 if len(x_range) > 0 else 0
         }
+        
+        # Add animation frames to convergence info
+        convergence_info['animation_frames'] = animation_frames
         
         return MurayamaResult(
             x_values=x_values,

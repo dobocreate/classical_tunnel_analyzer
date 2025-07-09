@@ -9,6 +9,7 @@ from src.models import (
 from src.murayama_new import ImprovedMurayamaCalculator
 from src.murayama import get_default_presets
 from src.report_generator import ReportGenerator, generate_markdown_report
+from src.animation_utils import create_slip_surface_animation, create_convergence_plot, create_slip_surface_trace
 import io
 import base64
 from datetime import datetime
@@ -342,10 +343,78 @@ if page == "計算":
                 surcharge_method=surcharge_method_enum
             )
             
-            # Calculate using improved algorithm
+            # Calculate using improved algorithm with animation
             with st.spinner("計算中..."):
+                # Create placeholder for animation
+                animation_placeholder = st.empty()
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                # Animation data storage
+                animation_data = []
+                
+                def progress_callback(frame_data):
+                    """Callback for real-time animation updates."""
+                    animation_data.append(frame_data)
+                    progress = frame_data['progress']
+                    
+                    # Update progress bar
+                    progress_bar.progress(progress)
+                    status_text.text(f"探索位置: x = {frame_data['x_i']:.1f}m, P = {frame_data['P']:.1f} kPa")
+                    
+                    # Update animation every 5th frame to avoid too frequent updates
+                    if len(animation_data) % 5 == 0 or frame_data['is_critical']:
+                        fig = create_slip_surface_animation(
+                            animation_data,
+                            {'height': murayama_input.geometry.height, 
+                             'tunnel_depth': murayama_input.geometry.tunnel_depth},
+                            show_realtime=True
+                        )
+                        
+                        # Add current slip surfaces
+                        for data in animation_data:
+                            color = 'red' if data['is_critical'] else 'lightblue'
+                            width = 3 if data['is_critical'] else 1
+                            fig.add_trace(create_slip_surface_trace(
+                                data['geometry'],
+                                murayama_input.geometry.tunnel_depth,
+                                murayama_input.geometry.height,
+                                color=color,
+                                width=width
+                            ))
+                        
+                        animation_placeholder.plotly_chart(fig, use_container_width=True)
+                
                 calculator = ImprovedMurayamaCalculator(murayama_input)
-                result = calculator.calculate_stability()
+                result = calculator.calculate_stability(progress_callback=progress_callback)
+                
+                # Clear progress indicators
+                progress_bar.empty()
+                status_text.empty()
+                
+                # Show final animation state with critical surface highlighted
+                if result.convergence_info and 'animation_frames' in result.convergence_info:
+                    final_fig = create_slip_surface_animation(
+                        result.convergence_info['animation_frames'],
+                        {'height': murayama_input.geometry.height,
+                         'tunnel_depth': murayama_input.geometry.tunnel_depth},
+                        show_realtime=True
+                    )
+                    
+                    # Add all slip surfaces with critical one highlighted
+                    for frame in result.convergence_info['animation_frames']:
+                        color = 'red' if frame['is_critical'] else 'lightgray'
+                        width = 3 if frame['is_critical'] else 1
+                        opacity = 1.0 if frame['is_critical'] else 0.3
+                        final_fig.add_trace(create_slip_surface_trace(
+                            frame['geometry'],
+                            murayama_input.geometry.tunnel_depth,
+                            murayama_input.geometry.height,
+                            color=color,
+                            width=width
+                        ))
+                    
+                    animation_placeholder.plotly_chart(final_fig, use_container_width=True)
                 
                 # Store result in session state
                 st.session_state['result'] = result
@@ -430,9 +499,40 @@ if page == "計算":
                 if st.button("📊 グラフ", use_container_width=True):
                     st.session_state.show_graph = not st.session_state.show_graph
             
+            # Additional analysis buttons
+            if st.button("🎬 アニメーション再生", use_container_width=True):
+                st.session_state.show_animation = True
+            
             # P-x curve graph
             if st.session_state.show_graph:
                 st.markdown("#### P-x曲線（必要支保圧力分布）")
+                fig = create_convergence_plot(
+                    result.x_values,
+                    result.P_values,
+                    result.x_critical,
+                    result.P_max
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            # Animation replay
+            if st.session_state.get('show_animation', False):
+                st.markdown("#### 🎬 すべり面探索アニメーション")
+                if result.convergence_info and 'animation_frames' in result.convergence_info:
+                    animation_fig = create_slip_surface_animation(
+                        result.convergence_info['animation_frames'],
+                        {'height': input_params.geometry.height,
+                         'tunnel_depth': input_params.geometry.tunnel_depth},
+                        show_realtime=False
+                    )
+                    st.plotly_chart(animation_fig, use_container_width=True)
+                    
+                    # Close button
+                    if st.button("アニメーションを閉じる"):
+                        st.session_state.show_animation = False
+                        st.rerun()
+            
+            # Original graph code (now replaced)
+            if False:  # Keep for reference
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(
                     x=result.x_values,
