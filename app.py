@@ -104,7 +104,7 @@ if page == "計算":
     st.markdown("村山の式を用いてトンネル切羽の安定性を評価します")
     
     # Main container with two columns
-    col_input, col_result = st.columns([2, 1])
+    col_input, spacer, col_result = st.columns([1, 0.1, 1])
     
     # Left column - Input section
     with col_input:
@@ -141,6 +141,15 @@ if page == "計算":
                         step=0.5,
                         help="トンネル天端の土被り深さ"
                     )
+                
+                u = st.number_input(
+                    "水圧 u (kPa)", 
+                    min_value=0.0, 
+                    max_value=1000.0, 
+                    value=0.0, 
+                    step=10.0,
+                    help="間隙水圧（通常: 0）"
+                )
             st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("")  # Spacing
@@ -199,26 +208,8 @@ if page == "計算":
         
         st.markdown("")  # Spacing
         
-        # Section 3: Loading Conditions
-        with st.container():
-            st.markdown("### 3️⃣ 荷重条件")
-            st.markdown('<div class="section-expander">', unsafe_allow_html=True)
-            expander3 = st.expander("", expanded=True)
-            with expander3:
-                u = st.number_input(
-                    "水圧 u (kPa)", 
-                    min_value=0.0, 
-                    max_value=1000.0, 
-                    value=0.0, 
-                    step=10.0,
-                    help="間隙水圧（通常: 0）"
-                )
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.markdown("")  # Spacing
-        
-        # Section 4: Advanced Settings
-        st.markdown("### 4️⃣ 詳細設定（オプション）")
+        # Section 3: Advanced Settings
+        st.markdown("### 3️⃣ 詳細設定（オプション）")
         with st.expander("詳細パラメータを表示"):
             col1, col2 = st.columns(2)
             with col1:
