@@ -1,6 +1,6 @@
 """Improved Murayama method calculation engine based on gemini specification."""
 import numpy as np
-from scipy.optimize import fsolve, minimize_scalar
+from scipy.optimize import fsolve, minimize_scalar, OptimizeResult
 from scipy.integrate import quad
 from typing import Tuple, Dict, Optional
 from src.models import MurayamaInput, MurayamaResult, SurchargeMethod
@@ -14,7 +14,7 @@ class ImprovedMurayamaCalculator:
         self.params = params
         self.g = 9.81  # Gravitational acceleration [m/s²]
         
-    def calculate_stability(self, progress_callback=None) -> MurayamaResult:
+    def calculate_stability(self, progress_callback=None, store_convergence_sample=False) -> MurayamaResult:
         """
         Calculate required support pressure using improved Murayama method.
         
@@ -31,7 +31,8 @@ class ImprovedMurayamaCalculator:
         x_critical = 0
         critical_slip_surface = {}
         convergence_failures = 0
-        animation_frames = []
+        convergence_sample = None
+        successful_convergences = []
         
         # Get parameters
         H = self.params.geometry.height
@@ -48,11 +49,26 @@ class ImprovedMurayamaCalculator:
         )
         
         for idx, x_i in enumerate(x_range):
-            # Step 2: Determine geometric shape
-            geometry = self._determine_geometry(x_i, H, D_t, phi_rad)
+            # Progress callback for status update
+            if progress_callback:
+                progress = (idx + 1) / len(x_range)
+                progress_callback({
+                    'progress': progress,
+                    'x_i': x_i,
+                    'status': 'calculating',
+                    'successful': len(x_values),
+                    'failed': convergence_failures
+                })
             
-            if geometry is None:
+            # Step 2: Determine geometric shape
+            # Store convergence history for first point only
+            store_conv = store_convergence_sample and idx == 0
+            geometry = self._determine_geometry(x_i, H, D_t, phi_rad, store_convergence=store_conv)
+            
+            if geometry is None or (isinstance(geometry, dict) and not geometry.get('converged', True)):
                 convergence_failures += 1
+                if store_conv and isinstance(geometry, dict):
+                    convergence_sample = geometry.get('history', [])
                 continue
                 
             # Step 3: Calculate forces
@@ -73,19 +89,17 @@ class ImprovedMurayamaCalculator:
                     critical_slip_surface = geometry
                     is_critical = True
                 
-                # Store animation frame data
-                frame_data = {
-                    'x_i': x_i,
-                    'geometry': geometry,
-                    'P': P,
-                    'is_critical': is_critical,
-                    'progress': (idx + 1) / len(x_range)
-                }
-                animation_frames.append(frame_data)
+                # Store convergence sample if this is the first successful point
+                if store_conv and geometry.get('convergence_history'):
+                    convergence_sample = geometry['convergence_history']
                 
-                # Call progress callback if provided
-                if progress_callback:
-                    progress_callback(frame_data)
+                # Track successful convergences
+                if geometry.get('convergence_history'):
+                    successful_convergences.append({
+                        'x_i': x_i,
+                        'iterations': len(geometry['convergence_history']),
+                        'final_error': geometry['convergence_history'][-1]['error'] if geometry['convergence_history'] else 0
+                    })
         
         # Calculate safety factor if needed
         safety_factor = self._calculate_safety_factor(P_max)
@@ -98,8 +112,9 @@ class ImprovedMurayamaCalculator:
             "convergence_rate": len(x_values) / len(x_range) * 100 if len(x_range) > 0 else 0
         }
         
-        # Add animation frames to convergence info
-        convergence_info['animation_frames'] = animation_frames
+        # Add convergence details
+        convergence_info['convergence_sample'] = convergence_sample
+        convergence_info['successful_convergences'] = successful_convergences
         
         return MurayamaResult(
             x_values=x_values,
@@ -111,7 +126,8 @@ class ImprovedMurayamaCalculator:
             convergence_info=convergence_info
         )
     
-    def _determine_geometry(self, x_i: float, H: float, D_t: float, phi_rad: float) -> Optional[Dict]:
+    def _determine_geometry(self, x_i: float, H: float, D_t: float, phi_rad: float, 
+                           store_convergence: bool = False) -> Optional[Dict]:
         """
         Determine logarithmic spiral geometry for given slip surface start point.
         
@@ -184,9 +200,25 @@ class ImprovedMurayamaCalculator:
             r_i_init = H
             r_d_init = H * 1.5
             
+            # Store convergence history
+            convergence_history = []
+            iteration_count = 0
+            
+            def equations_with_tracking(vars):
+                nonlocal iteration_count
+                iteration_count += 1
+                residuals = equations(vars)
+                error = np.linalg.norm(residuals)
+                convergence_history.append({
+                    'iteration': iteration_count,
+                    'error': error,
+                    'variables': vars.copy()
+                })
+                return residuals
+            
             # Solve equations with user-specified parameters
             solution, info, ier, mesg = fsolve(
-                equations, 
+                equations_with_tracking if store_convergence else equations, 
                 [O_x_init, O_y_init, r_i_init, r_d_init],
                 xtol=self.params.tolerance,
                 maxfev=self.params.max_iterations,
@@ -195,6 +227,8 @@ class ImprovedMurayamaCalculator:
             
             # Check convergence
             if ier != 1:
+                if store_convergence:
+                    return {'converged': False, 'history': convergence_history, 'message': mesg}
                 return None
                 
             O_x, O_y, r_i, r_d = solution
@@ -203,7 +237,7 @@ class ImprovedMurayamaCalculator:
             theta_i = np.arctan2(i_y - O_y, i_x - O_x)
             theta_d = np.arctan2(D_t - O_y, 0 - O_x)  # Assume d is at x=0 for now
             
-            return {
+            result = {
                 'x_i': x_i,
                 'center': {'x': O_x, 'y': O_y},
                 'r_i': r_i,
@@ -212,6 +246,12 @@ class ImprovedMurayamaCalculator:
                 'theta_d': theta_d,
                 'i': {'x': i_x, 'y': i_y}
             }
+            
+            if store_convergence:
+                result['convergence_history'] = convergence_history
+                result['converged'] = True
+            
+            return result
             
         except Exception as e:
             return None

@@ -9,7 +9,12 @@ from src.models import (
 from src.murayama_new import ImprovedMurayamaCalculator
 from src.murayama import get_default_presets
 from src.report_generator import ReportGenerator, generate_markdown_report
-from src.animation_utils import create_slip_surface_animation, create_convergence_plot, create_slip_surface_trace
+from src.convergence_utils import (
+    show_calculation_progress, 
+    create_convergence_history_plot,
+    create_convergence_statistics_plot,
+    create_convergence_summary_table
+)
 import io
 import base64
 from datetime import datetime
@@ -343,79 +348,30 @@ if page == "計算":
                 surcharge_method=surcharge_method_enum
             )
             
-            # Calculate using improved algorithm with animation
+            # Calculate using improved algorithm with progress tracking
             with st.spinner("計算中..."):
-                # Create placeholder for animation
-                animation_placeholder = st.empty()
-                progress_bar = st.progress(0)
-                status_text = st.empty()
+                # Create placeholder for progress display
+                progress_placeholder = st.empty()
                 
-                # Animation data storage
-                animation_data = []
-                
-                def progress_callback(frame_data):
-                    """Callback for real-time animation updates."""
-                    animation_data.append(frame_data)
-                    progress = frame_data['progress']
-                    
-                    # Update progress bar
-                    progress_bar.progress(progress)
-                    status_text.text(f"探索位置: x = {frame_data['x_i']:.1f}m, P = {frame_data['P']:.1f} kPa")
-                    
-                    # Update animation every 5th frame to avoid too frequent updates
-                    if len(animation_data) % 5 == 0 or frame_data['is_critical']:
-                        fig = create_slip_surface_animation(
-                            animation_data,
-                            {'height': murayama_input.geometry.height, 
-                             'tunnel_depth': murayama_input.geometry.tunnel_depth},
-                            show_realtime=True
-                        )
-                        
-                        # Add current slip surfaces
-                        for data in animation_data:
-                            color = 'red' if data['is_critical'] else 'lightblue'
-                            width = 3 if data['is_critical'] else 1
-                            fig.add_trace(create_slip_surface_trace(
-                                data['geometry'],
-                                murayama_input.geometry.tunnel_depth,
-                                murayama_input.geometry.height,
-                                color=color,
-                                width=width
-                            ))
-                        
-                        animation_placeholder.plotly_chart(fig, use_container_width=True, key=f"progress_{len(animation_data)}")
+                def progress_callback(status_data):
+                    """Callback for real-time progress updates."""
+                    show_calculation_progress(progress_placeholder, status_data)
                 
                 calculator = ImprovedMurayamaCalculator(murayama_input)
-                result = calculator.calculate_stability(progress_callback=progress_callback)
+                result = calculator.calculate_stability(
+                    progress_callback=progress_callback,
+                    store_convergence_sample=True
+                )
                 
-                # Clear progress indicators
-                progress_bar.empty()
-                status_text.empty()
-                
-                # Show final animation state with critical surface highlighted
-                if result.convergence_info and 'animation_frames' in result.convergence_info:
-                    final_fig = create_slip_surface_animation(
-                        result.convergence_info['animation_frames'],
-                        {'height': murayama_input.geometry.height,
-                         'tunnel_depth': murayama_input.geometry.tunnel_depth},
-                        show_realtime=True
-                    )
-                    
-                    # Add all slip surfaces with critical one highlighted
-                    for frame in result.convergence_info['animation_frames']:
-                        color = 'red' if frame['is_critical'] else 'lightgray'
-                        width = 3 if frame['is_critical'] else 1
-                        opacity = 1.0 if frame['is_critical'] else 0.3
-                        final_fig.add_trace(create_slip_surface_trace(
-                            frame['geometry'],
-                            murayama_input.geometry.tunnel_depth,
-                            murayama_input.geometry.height,
-                            color=color,
-                            width=width
-                        ))
-                    
-                    animation_placeholder.empty()  # Clear previous content
-                    animation_placeholder.plotly_chart(final_fig, use_container_width=True, key="final_animation")
+                # Show final status
+                final_status = {
+                    'progress': 1.0,
+                    'x_i': result.x_critical,
+                    'status': 'completed',
+                    'successful': result.convergence_info.get('successful_points', 0),
+                    'failed': result.convergence_info.get('convergence_failures', 0)
+                }
+                show_calculation_progress(progress_placeholder, final_status)
                 
                 # Store result in session state
                 st.session_state['result'] = result
@@ -501,40 +457,80 @@ if page == "計算":
                     st.session_state.show_graph = not st.session_state.show_graph
             
             # Additional analysis buttons
-            if st.button("🎬 アニメーション再生", use_container_width=True):
-                st.session_state.show_animation = True
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                if st.button("📊 収束履歴", use_container_width=True):
+                    st.session_state.show_convergence = True
+            
+            with col_btn2:
+                if st.button("📋 収束統計", use_container_width=True):
+                    st.session_state.show_statistics = True
             
             # P-x curve graph
             if st.session_state.show_graph:
                 st.markdown("#### P-x曲線（必要支保圧力分布）")
-                fig = create_convergence_plot(
-                    result.x_values,
-                    result.P_values,
-                    result.x_critical,
-                    result.P_max
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=result.x_values,
+                    y=result.P_values,
+                    mode='lines',
+                    name='P-x曲線',
+                    line=dict(color='blue', width=2)
+                ))
+                fig.add_trace(go.Scatter(
+                    x=[result.x_critical],
+                    y=[result.P_max],
+                    mode='markers',
+                    name=f'P_max = {result.P_max:.1f} kN/m²',
+                    marker=dict(color='red', size=12, symbol='star')
+                ))
+                fig.update_layout(
+                    xaxis_title="すべり面始点位置 x (m)",
+                    yaxis_title="必要支保圧力 P (kN/m²)",
+                    plot_bgcolor='white',
+                    hovermode='x unified'
                 )
                 st.plotly_chart(fig, use_container_width=True)
             
-            # Animation replay
-            if st.session_state.get('show_animation', False):
-                st.markdown("#### 🎬 すべり面探索アニメーション")
-                if result.convergence_info and 'animation_frames' in result.convergence_info:
-                    animation_fig = create_slip_surface_animation(
-                        result.convergence_info['animation_frames'],
-                        {'height': input_params.geometry.height,
-                         'tunnel_depth': input_params.geometry.tunnel_depth},
-                        show_realtime=False
-                    )
-                    st.plotly_chart(animation_fig, use_container_width=True)
+            # Convergence history
+            if st.session_state.get('show_convergence', False):
+                st.markdown("#### 📊 反復計算の収束履歴")
+                if result.convergence_info and 'convergence_sample' in result.convergence_info:
+                    convergence_sample = result.convergence_info['convergence_sample']
+                    if convergence_sample:
+                        fig_conv = create_convergence_history_plot(
+                            convergence_sample,
+                            murayama_input.tolerance
+                        )
+                        st.plotly_chart(fig_conv, use_container_width=True)
+                    else:
+                        st.info("収束履歴データがありません")
                     
-                    # Close button
-                    if st.button("アニメーションを閉じる"):
-                        st.session_state.show_animation = False
+                    if st.button("収束履歴を閉じる"):
+                        st.session_state.show_convergence = False
                         st.rerun()
             
-            # Original graph code (now replaced)
-            if False:  # Keep for reference
-                fig = go.Figure()
+            # Convergence statistics
+            if st.session_state.get('show_statistics', False):
+                st.markdown("#### 📋 収束統計")
+                
+                # Summary table
+                summary = create_convergence_summary_table(result)
+                if summary:
+                    cols = st.columns(len(summary) // 2)
+                    for i, (key, value) in enumerate(summary.items()):
+                        cols[i % len(cols)].metric(key, value)
+                
+                # Statistics plot
+                if result.convergence_info and 'successful_convergences' in result.convergence_info:
+                    fig_stats = create_convergence_statistics_plot(
+                        result.convergence_info['successful_convergences']
+                    )
+                    st.plotly_chart(fig_stats, use_container_width=True)
+                
+                if st.button("収束統計を閉じる"):
+                    st.session_state.show_statistics = False
+                    st.rerun()
                 fig.add_trace(go.Scatter(
                     x=result.x_values,
                     y=result.P_values,
