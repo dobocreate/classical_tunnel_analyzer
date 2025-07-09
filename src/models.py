@@ -139,6 +139,10 @@ class MurayamaResult(BaseModel):
         default=None, 
         description="Safety factor (if external load provided)"
     )
+    convergence_info: Optional[dict] = Field(
+        default=None,
+        description="Information about calculation convergence"
+    )
     
     class Config:
         """Pydantic configuration."""

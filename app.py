@@ -258,14 +258,6 @@ if page == "計算":
                     step=0.1,
                     help="探索の刻み幅"
                 )
-                n_divisions = st.number_input(
-                    "計算分割数",
-                    min_value=10,
-                    max_value=1000,
-                    value=100,
-                    step=10,
-                    help="数値積分の分割数"
-                )
             
             col1, col2 = st.columns(2)
             with col1:
@@ -332,7 +324,7 @@ if page == "計算":
                 x_start=x_start if 'x_start' in locals() else -10.0,
                 x_end=x_end if 'x_end' in locals() else 10.0,
                 x_step=x_step if 'x_step' in locals() else 0.5,
-                n_divisions=n_divisions if 'n_divisions' in locals() else 100,
+                n_divisions=100,  # Fixed value for scipy.quad
                 max_iterations=max_iterations if 'max_iterations' in locals() else 100,
                 tolerance=tolerance if 'tolerance' in locals() else 1e-6,
                 surcharge_method=surcharge_method_enum
@@ -378,12 +370,18 @@ if page == "計算":
                 if st.session_state['input'].surcharge_method == SurchargeMethod.TERZAGHI:
                     calc_method = "テルツァギー"
             
+            # Add convergence info if available
+            convergence_rate = "100%"
+            if result.convergence_info and 'convergence_rate' in result.convergence_info:
+                convergence_rate = f"{result.convergence_info['convergence_rate']:.1f}%"
+            
             result_data = {
-                "項目": ["最大必要支保圧力", "危険すべり面位置", "計算点数", "上載荷重計算"],
+                "項目": ["最大必要支保圧力", "危険すべり面位置", "計算点数", "収束率", "上載荷重計算"],
                 "値": [
                     f"{result.P_max:.1f} kN/m²",
                     f"{result.x_critical:.2f} m",
                     f"{len(result.x_values)} 点",
+                    convergence_rate,
                     calc_method
                 ]
             }
@@ -563,8 +561,10 @@ elif page == "理論説明":
     ### 5.2 数値計算手法
     
     - **非線形方程式**: SciPy の `fsolve` を使用
-    - **数値積分**: SciPy の `quad` を使用
-    - **収束判定**: 相対誤差 $< 10^{-6}$
+      - 最大反復回数とで収束性を制御
+      - 収束判定値で計算精度を調整
+    - **数値積分**: SciPy の `quad` を使用（自動適応分割）
+    - **収束判定**: ユーザー指定の判定値（デフォルト: $10^{-6}$）
     """)
     
     st.markdown("## 6. 必要支保圧力の評価")

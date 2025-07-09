@@ -26,6 +26,7 @@ class ImprovedMurayamaCalculator:
         P_max = 0
         x_critical = 0
         critical_slip_surface = {}
+        convergence_failures = 0
         
         # Get parameters
         H = self.params.geometry.height
@@ -46,6 +47,7 @@ class ImprovedMurayamaCalculator:
             geometry = self._determine_geometry(x_i, H, D_t, phi_rad)
             
             if geometry is None:
+                convergence_failures += 1
                 continue
                 
             # Step 3: Calculate forces
@@ -67,13 +69,22 @@ class ImprovedMurayamaCalculator:
         # Calculate safety factor if needed
         safety_factor = self._calculate_safety_factor(P_max)
         
+        # Prepare convergence information
+        convergence_info = {
+            "total_points": len(x_range),
+            "successful_points": len(x_values),
+            "convergence_failures": convergence_failures,
+            "convergence_rate": len(x_values) / len(x_range) * 100 if len(x_range) > 0 else 0
+        }
+        
         return MurayamaResult(
             x_values=x_values,
             P_values=P_values,
             P_max=P_max,
             x_critical=x_critical,
             critical_slip_surface=critical_slip_surface,
-            safety_factor=safety_factor
+            safety_factor=safety_factor,
+            convergence_info=convergence_info
         )
     
     def _determine_geometry(self, x_i: float, H: float, D_t: float, phi_rad: float) -> Optional[Dict]:
@@ -149,8 +160,19 @@ class ImprovedMurayamaCalculator:
             r_i_init = H
             r_d_init = H * 1.5
             
-            # Solve equations
-            solution = fsolve(equations, [O_x_init, O_y_init, r_i_init, r_d_init])
+            # Solve equations with user-specified parameters
+            solution, info, ier, mesg = fsolve(
+                equations, 
+                [O_x_init, O_y_init, r_i_init, r_d_init],
+                xtol=self.params.tolerance,
+                maxfev=self.params.max_iterations,
+                full_output=True
+            )
+            
+            # Check convergence
+            if ier != 1:
+                return None
+                
             O_x, O_y, r_i, r_d = solution
             
             # Calculate theta values
