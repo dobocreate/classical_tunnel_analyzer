@@ -84,12 +84,11 @@ class ReportGenerator:
         data = [
             ['Parameter', 'Value', 'Unit'],
             ['Tunnel height (H)', f'{self.input_params.geometry.height:.1f}', 'm'],
-            ['Initial radius (r₀)', f'{self.input_params.geometry.r0:.1f}', 'm'],
+            ['Tunnel depth (D_t)', f'{self.input_params.geometry.tunnel_depth:.1f}', 'm'],
             ['Unit weight (γ)', f'{self.input_params.soil.gamma:.1f}', 'kN/m³'],
             ['Cohesion (c)', f'{self.input_params.soil.c:.1f}', 'kPa'],
             ['Friction angle (φ)', f'{self.input_params.soil.phi:.1f}', '°'],
             ['Water pressure (u)', f'{self.input_params.loading.u:.1f}', 'kPa'],
-            ['Surcharge (σᵥ)', f'{self.input_params.loading.sigma_v:.1f}', 'kPa'],
         ]
         
         table = Table(data, colWidths=[6*cm, 3*cm, 3*cm])
