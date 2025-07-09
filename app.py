@@ -108,6 +108,8 @@ if page == "計算":
     
     # Left column - Input section
     with col_input:
+        st.markdown("### 📝 計算条件")
+        
         # Guide text
         with st.container():
             st.info("""
