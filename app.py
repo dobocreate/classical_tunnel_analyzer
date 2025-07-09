@@ -383,7 +383,7 @@ if page == "計算":
                                 width=width
                             ))
                         
-                        animation_placeholder.plotly_chart(fig, use_container_width=True)
+                        animation_placeholder.plotly_chart(fig, use_container_width=True, key=f"progress_{len(animation_data)}")
                 
                 calculator = ImprovedMurayamaCalculator(murayama_input)
                 result = calculator.calculate_stability(progress_callback=progress_callback)
@@ -414,7 +414,8 @@ if page == "計算":
                             width=width
                         ))
                     
-                    animation_placeholder.plotly_chart(final_fig, use_container_width=True)
+                    animation_placeholder.empty()  # Clear previous content
+                    animation_placeholder.plotly_chart(final_fig, use_container_width=True, key="final_animation")
                 
                 # Store result in session state
                 st.session_state['result'] = result
