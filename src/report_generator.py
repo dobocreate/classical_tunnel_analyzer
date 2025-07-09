@@ -219,7 +219,7 @@ def generate_markdown_report(input_params: MurayamaInput, result: MurayamaResult
 
 ### Tunnel Geometry
 - Height (H): {input_params.geometry.height:.1f} m
-- Initial radius (r₀): {input_params.geometry.r0:.1f} m
+- Tunnel depth (D_t): {input_params.geometry.tunnel_depth:.1f} m
 
 ### Soil Parameters
 - Unit weight (γ): {input_params.soil.gamma:.1f} kN/m³
@@ -228,13 +228,12 @@ def generate_markdown_report(input_params: MurayamaInput, result: MurayamaResult
 
 ### Loading Conditions
 - Water pressure (u): {input_params.loading.u:.1f} kPa
-- Surcharge (σᵥ): {input_params.loading.sigma_v:.1f} kPa
 
 ## 2. Analysis Results
 
 ### Key Results
-- **Maximum resistance (P_max)**: {result.P_max:.1f} kN/m
-- **Critical sliding width (B_critical)**: {result.B_critical:.2f} m
+- **Maximum support pressure (P_max)**: {result.P_max:.1f} kN/m²
+- **Critical position (x_critical)**: {result.x_critical:.1f} m
 """
     
     if result.safety_factor:
