@@ -1,7 +1,14 @@
 """Data models for tunnel stability analysis using Pydantic."""
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
+from enum import Enum
 import numpy as np
+
+
+class SurchargeMethod(str, Enum):
+    """Surcharge load calculation method."""
+    SIMPLE = "簡易法"
+    TERZAGHI = "テルツァギーの土圧理論"
 
 
 class TunnelGeometry(BaseModel):
@@ -111,6 +118,10 @@ class MurayamaInput(BaseModel):
         le=0.1, 
         default=1e-6, 
         description="Convergence tolerance"
+    )
+    surcharge_method: SurchargeMethod = Field(
+        default=SurchargeMethod.SIMPLE,
+        description="Surcharge load calculation method"
     )
 
 

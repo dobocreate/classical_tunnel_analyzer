@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from src.models import (
     TunnelGeometry, SoilParameters, LoadingConditions, 
-    MurayamaInput, MurayamaResult
+    MurayamaInput, MurayamaResult, SurchargeMethod
 )
 from src.murayama_new import ImprovedMurayamaCalculator
 from src.murayama import get_default_presets
@@ -286,6 +286,15 @@ if page == "計算":
                     format="%.2e",
                     help="反復計算の収束判定値"
                 )
+            
+            # Surcharge calculation method selection
+            st.markdown("#### 上載荷重計算方法")
+            surcharge_method = st.selectbox(
+                "計算方法を選択",
+                options=[SurchargeMethod.SIMPLE.value, SurchargeMethod.TERZAGHI.value],
+                index=0,
+                help="簡易法：土被り分の重量、テルツァギー：アーチング効果を考慮"
+            )
         
         # Calculate button
         st.markdown("")  # Spacing
@@ -310,6 +319,12 @@ if page == "計算":
             geometry = TunnelGeometry(height=height, tunnel_depth=tunnel_depth)
             soil = SoilParameters(gamma=gamma, c=c, phi=phi)
             loading = LoadingConditions(u=u, sigma_v=sigma_v)
+            # Convert surcharge method string to enum
+            surcharge_method_enum = SurchargeMethod.SIMPLE
+            if 'surcharge_method' in locals():
+                if surcharge_method == SurchargeMethod.TERZAGHI.value:
+                    surcharge_method_enum = SurchargeMethod.TERZAGHI
+            
             murayama_input = MurayamaInput(
                 geometry=geometry,
                 soil=soil,
@@ -319,7 +334,8 @@ if page == "計算":
                 x_step=x_step if 'x_step' in locals() else 0.5,
                 n_divisions=n_divisions if 'n_divisions' in locals() else 100,
                 max_iterations=max_iterations if 'max_iterations' in locals() else 100,
-                tolerance=tolerance if 'tolerance' in locals() else 1e-6
+                tolerance=tolerance if 'tolerance' in locals() else 1e-6,
+                surcharge_method=surcharge_method_enum
             )
             
             # Calculate using improved algorithm
@@ -356,12 +372,19 @@ if page == "計算":
             # Detailed results
             st.markdown("#### 計算結果の詳細")
             
+            # Get calculation method from session state
+            calc_method = "簡易法"
+            if 'input' in st.session_state:
+                if st.session_state['input'].surcharge_method == SurchargeMethod.TERZAGHI:
+                    calc_method = "テルツァギー"
+            
             result_data = {
-                "項目": ["最大必要支保圧力", "危険すべり面位置", "計算点数"],
+                "項目": ["最大必要支保圧力", "危険すべり面位置", "計算点数", "上載荷重計算"],
                 "値": [
                     f"{result.P_max:.1f} kN/m²",
                     f"{result.x_critical:.2f} m",
-                    f"{len(result.x_values)} 点"
+                    f"{len(result.x_values)} 点",
+                    calc_method
                 ]
             }
             df_results = pd.DataFrame(result_data)
@@ -491,9 +514,18 @@ elif page == "理論説明":
        - $A_h$: すべり土塊の断面積（数値積分により算定）
     
     2. **上載荷重 $Q$**
-       $$Q = \\gamma \\cdot B \\cdot D_t$$
-       - $B$: すべり土塊の地表面での幅
-       - $D_t$: 土被り深さ
+       
+       **簡易法**：
+       $$Q = \\gamma \\cdot B_s \\cdot D_t$$
+       
+       **テルツァギーの土圧理論**：
+       $$p_v = \\frac{B_s \\cdot \\gamma - 2c}{2K \\tan\\delta} \\left(1 - e^{-2K \\tan\\delta \\frac{D_t}{B_s}}\\right)$$
+       $$Q = p_v \\cdot B_s$$
+       
+       ここで：
+       - $B_s$: すべり土塊の地表面での幅
+       - $K$: 土圧係数（ランキンの主働土圧係数）
+       - $\\delta$: 側壁摩擦角（通常 $\\delta = \\phi$）
     
     3. **粘着力によるモーメント $M_c$**
        $$M_c = \\frac{c}{2\\tan\\phi}(r_i^2 - r_d^2)$$
@@ -557,7 +589,28 @@ elif page == "理論説明":
     - これらの組み合わせ
     """)
     
-    st.markdown("## 7. 改良版の特徴")
+    st.markdown("## 7. 上載荷重計算方法の選択")
+    st.markdown("""
+    ### 7.1 簡易法
+    
+    単純に土被り分の重量を考慮：
+    - 計算が簡単
+    - 保守的な評価（安全側）
+    - アーチング効果を無視
+    
+    ### 7.2 テルツァギーの土圧理論
+    
+    地盤のアーチング効果を考慮：
+    - より現実的な荷重評価
+    - すべり土塊幅が小さいほど荷重が軽減
+    - 粘着力の効果も考慮
+    
+    **選択の指針**：
+    - 初期検討や保守的評価が必要な場合：簡易法
+    - より詳細な検討や経済的設計が必要な場合：テルツァギー法
+    """)
+    
+    st.markdown("## 8. 改良版の特徴")
     st.markdown("""
     従来の村山の式からの主な改良点：
     
@@ -567,7 +620,7 @@ elif page == "理論説明":
     
     2. **精密な力学計算**
        - 数値積分による正確な断面積算定
-       - 上載荷重の考慮
+       - 上載荷重計算方法の選択機能
        - より正確なモーメント腕の計算
     
     3. **実用的な出力**
@@ -576,9 +629,10 @@ elif page == "理論説明":
        - 支保工選定への直接的な指標
     """)
     
-    st.markdown("## 8. 参考文献")
+    st.markdown("## 9. 参考文献")
     st.markdown("""
     - 村山元英 (1984): 「トンネル切羽の安定解析法」, 地盤工学会誌
+    - Terzaghi, K. (1943): "Theoretical Soil Mechanics", John Wiley & Sons
     - 福島啓一 (1994): 『わかりやすいトンネルの力学』, 森北出版
     - 土木学会 (2016): 『トンネル標準示方書［山岳工法編］・同解説』
     - 国総研資料第548号 (2015): 「都市トンネル施工における切羽安定管理指針」

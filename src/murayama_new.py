@@ -3,7 +3,7 @@ import numpy as np
 from scipy.optimize import fsolve, minimize_scalar
 from scipy.integrate import quad
 from typing import Tuple, Dict, Optional
-from src.models import MurayamaInput, MurayamaResult
+from src.models import MurayamaInput, MurayamaResult, SurchargeMethod
 
 
 class ImprovedMurayamaCalculator:
@@ -204,10 +204,16 @@ class ImprovedMurayamaCalculator:
         # Weight of slip mass
         W_h = area * gamma
         
-        # Surcharge load (simplified)
-        # Width at surface
-        B = abs(geometry['x_i'])
-        Q = B * D_t * gamma
+        # Width at surface (slip surface width)
+        B_s = abs(geometry['x_i'])
+        
+        # Surcharge load calculation based on selected method
+        if self.params.surcharge_method == SurchargeMethod.SIMPLE:
+            # Simple method: just the weight of overburden
+            Q = B_s * D_t * gamma
+        else:
+            # Terzaghi's earth pressure theory
+            Q = self._calculate_terzaghi_surcharge(B_s, gamma, c, phi_rad, D_t)
         
         # Calculate centroids (simplified)
         # For sector, centroid is at 2/3 radius from center
@@ -264,6 +270,57 @@ class ImprovedMurayamaCalculator:
                 
         except Exception as e:
             return None
+    
+    def _calculate_terzaghi_surcharge(self, B_s: float, gamma: float, c: float, 
+                                     phi_rad: float, D_t: float) -> float:
+        """
+        Calculate surcharge load using Terzaghi's earth pressure theory.
+        
+        Args:
+            B_s: Slip surface width at ground surface [m]
+            gamma: Unit weight [kN/m³]
+            c: Cohesion [kPa]
+            phi_rad: Friction angle [rad]
+            D_t: Tunnel depth [m]
+            
+        Returns:
+            Total surcharge load Q [kN/m]
+        """
+        # Convert cohesion to kN/m²
+        c_kN = c  # Already in kPa = kN/m²
+        
+        # Side wall friction angle (assume equal to phi)
+        delta_rad = phi_rad
+        
+        # Earth pressure coefficient (Rankine's active earth pressure)
+        # K = tan²(45° - φ/2)
+        K = np.tan(np.pi/4 - phi_rad/2) ** 2
+        
+        # Check for zero denominator
+        denominator = 2 * K * np.tan(delta_rad)
+        if abs(denominator) < 1e-10:
+            # Fall back to simple method if denominator is too small
+            return B_s * D_t * gamma
+        
+        # Terzaghi's formula for vertical pressure
+        # p_v = (B_s * γ - 2c) / (2K * tan(δ)) * (1 - exp(-2K * tan(δ) * D_t / B_s))
+        exponent_term = -denominator * D_t / B_s
+        
+        # Ensure numerical stability
+        if exponent_term < -20:  # exp(-20) ≈ 2e-9
+            exp_term = 0
+        else:
+            exp_term = np.exp(exponent_term)
+        
+        p_v = (B_s * gamma - 2 * c_kN) / denominator * (1 - exp_term)
+        
+        # Ensure non-negative pressure
+        p_v = max(0, p_v)
+        
+        # Total surcharge load
+        Q = p_v * B_s
+        
+        return Q
     
     def _calculate_safety_factor(self, P_max: float) -> Optional[float]:
         """Calculate safety factor if applicable."""
