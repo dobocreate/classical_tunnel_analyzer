@@ -6,8 +6,8 @@ from src.models import (
     TunnelGeometry, SoilParameters, LoadingConditions, 
     MurayamaInput, MurayamaResult
 )
-from src.murayama import MurayamaCalculator, get_default_presets
 from src.murayama_new import ImprovedMurayamaCalculator
+from src.murayama import get_default_presets
 from src.report_generator import ReportGenerator, generate_markdown_report
 import io
 import base64
@@ -372,10 +372,10 @@ if page == "計算":
             # Judgment criteria
             with st.expander("判定基準"):
                 st.markdown("""
-                - **Fs < 1.0**: 危険（対策必須）
-                - **1.0 ≤ Fs < 1.2**: 要注意
-                - **Fs ≥ 1.2**: 安全
-                - **計算方法**: 村山の式（1984）
+                - **P < 50 kN/m²**: 切羽は安定
+                - **50 ≤ P < 100 kN/m²**: 軽微な支保が必要
+                - **P ≥ 100 kN/m²**: 強固な支保が必要
+                - **計算方法**: 改良版村山の式
                 """)
             
             # Action buttons
@@ -453,35 +453,38 @@ elif page == "理論説明":
     
     ここで：
     - $r$: 動径
-    - $r_0$: 初期動径
+    - $r_0$: 基準動径
     - $\\theta$: 偏角
     - $\\phi$: 内部摩擦角
+    
+    すべり面の始点は切羽上部から開始し、その位置を変化させて最も危険なすべり面を探索します。
     """)
     
     st.markdown("## 4. モーメント平衡式")
     st.markdown("""
-    切羽に作用する抵抗力 $P$ は、すべり土塊に作用する力のモーメント平衡から求められます：
+    切羽に作用する必要支保圧力 $P$ は、すべり土塊に作用する力のモーメント平衡から求められます：
     
-    $$P \\cdot l_p = W_f \\cdot l_w + \\int_{\\theta_0}^{\\theta_1} r \\cdot c \\cdot \\cos \\phi \\, ds$$
+    $$P \\cdot l_p + M_{cohesion} = W_h \\cdot l_w + Q \\cdot l_Q$$
     
     ここで：
-    - $P$: 切羽抵抗力
-    - $l_p$: 抵抗力の作用点からの距離
-    - $W_f$: すべり土塊の重量
-    - $l_w$: 重量の作用点からの距離
-    - $c$: 粘着力
+    - $P$: 必要支保圧力
+    - $l_p$: 支保圧力の腕の長さ
+    - $M_{cohesion}$: 粘着力によるモーメント
+    - $W_h$: すべり土塊の重量
+    - $Q$: 上載荷重
+    - $l_w, l_Q$: それぞれの腕の長さ
     """)
     
-    st.markdown("## 5. 安全率の定義")
+    st.markdown("## 5. 必要支保圧力の評価")
     st.markdown("""
-    安全率 $F_s$ は、最大抵抗力と作用土圧の比として定義されます：
+    計算された必要支保圧力 $P_{max}$ により、切羽の安定性を評価します：
     
-    $$F_s = \\frac{P_{max}}{P_{required}}$$
+    判定基準：
+    - $P_{max} < 50 kN/m²$: 切羽は安定（支保不要または軽微）
+    - $50 \\leq P_{max} < 100 kN/m²$: 軽微な支保が必要
+    - $P_{max} \\geq 100 kN/m²$: 強固な支保が必要
     
-    一般的な判定基準：
-    - $F_s \\geq 1.2$: 安全
-    - $1.0 \\leq F_s < 1.2$: 要注意
-    - $F_s < 1.0$: 危険（対策必須）
+    必要支保圧力が大きいほど、より強固な支保工が必要となります。
     """)
     
     st.markdown("## 6. 参考文献")
@@ -578,7 +581,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center; padding: 1rem 0; color: #666; font-size: 0.9rem;">
-        村山式トンネル安定性解析 v0.1 | 村山 (1984) に基づく
+        村山式トンネル安定性解析 v0.2 | 改良版村山の式
     </div>
     """,
     unsafe_allow_html=True
