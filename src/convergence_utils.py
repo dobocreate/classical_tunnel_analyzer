@@ -137,11 +137,19 @@ def show_calculation_progress(placeholder, status_data: Dict):
             )
         
         with col4:
-            success_rate = (status_data.get('successful', 0) / 
-                          (status_data.get('successful', 0) + status_data.get('failed', 1))) * 100
+            successful = status_data.get('successful', 0)
+            failed = status_data.get('failed', 0)
+            total = successful + failed
+            
+            if total > 0:
+                success_rate = (successful / total) * 100
+                rate_text = f"{success_rate:.1f}%"
+            else:
+                rate_text = "--"  # まだ計算が始まっていない
+            
             st.metric(
                 "収束率",
-                f"{success_rate:.1f}%"
+                rate_text
             )
         
         # Visual status indicator

@@ -218,6 +218,15 @@ if page == "計算":
         
         # Section 3: Advanced Settings
         st.markdown("### 3️⃣ 詳細設定（オプション）")
+        
+        # Initialize default values outside expander
+        x_start = -10.0
+        x_end = 10.0
+        x_step = 0.5
+        max_iterations = 100
+        tolerance = 1e-6
+        surcharge_method = SurchargeMethod.SIMPLE.value
+        
         with st.expander("詳細パラメータを表示"):
             col1, col2 = st.columns(2)
             with col1:
@@ -295,12 +304,12 @@ if page == "計算":
                     'c': c,
                     'phi': phi,
                     'u': u,
-                    'x_start': x_start if 'x_start' in locals() else -10.0,
-                    'x_end': x_end if 'x_end' in locals() else 10.0,
-                    'x_step': x_step if 'x_step' in locals() else 0.5,
-                    'max_iterations': max_iterations if 'max_iterations' in locals() else 100,
-                    'tolerance': tolerance if 'tolerance' in locals() else 1e-6,
-                    'surcharge_method': surcharge_method if 'surcharge_method' in locals() else SurchargeMethod.SIMPLE.value
+                    'x_start': x_start,
+                    'x_end': x_end,
+                    'x_step': x_step,
+                    'max_iterations': max_iterations,
+                    'tolerance': tolerance,
+                    'surcharge_method': surcharge_method
                 }
                 st.session_state.calculate_clicked = True
     
