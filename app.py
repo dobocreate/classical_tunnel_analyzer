@@ -205,25 +205,14 @@ if page == "計算":
             st.markdown('<div class="section-expander">', unsafe_allow_html=True)
             expander3 = st.expander("", expanded=True)
             with expander3:
-                col1, col2 = st.columns(2)
-                with col1:
-                    u = st.number_input(
-                        "水圧 u (kPa)", 
-                        min_value=0.0, 
-                        max_value=1000.0, 
-                        value=0.0, 
-                        step=10.0,
-                        help="間隙水圧（通常: 0）"
-                    )
-                with col2:
-                    sigma_v = st.number_input(
-                        "上載荷重 σᵥ (kPa)", 
-                        min_value=0.0, 
-                        max_value=5000.0, 
-                        value=0.0, 
-                        step=50.0,
-                        help="鉛直上載荷重（通常: 0）"
-                    )
+                u = st.number_input(
+                    "水圧 u (kPa)", 
+                    min_value=0.0, 
+                    max_value=1000.0, 
+                    value=0.0, 
+                    step=10.0,
+                    help="間隙水圧（通常: 0）"
+                )
             st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("")  # Spacing
@@ -307,7 +296,6 @@ if page == "計算":
                     'c': c,
                     'phi': phi,
                     'u': u,
-                    'sigma_v': sigma_v,
                     'x_start': x_start if 'x_start' in locals() else -10.0,
                     'x_end': x_end if 'x_end' in locals() else 10.0,
                     'x_step': x_step if 'x_step' in locals() else 0.5,
@@ -340,8 +328,7 @@ if page == "計算":
                 phi=params['phi']
             )
             loading = LoadingConditions(
-                u=params['u'], 
-                sigma_v=params['sigma_v']
+                u=params['u']
             )
             
             # Convert surcharge method string to enum

@@ -70,12 +70,6 @@ class LoadingConditions(BaseModel):
         description="Water pressure u [kPa]", 
         default=0
     )
-    sigma_v: float = Field(
-        ge=0, 
-        le=5000, 
-        description="Surcharge load σ_v [kPa]", 
-        default=0
-    )
 
 
 class MurayamaInput(BaseModel):
@@ -157,5 +151,5 @@ class DesignPreset(BaseModel):
     description: str = Field(description="Description of soil type")
     soil: SoilParameters
     typical_loading: LoadingConditions = Field(
-        default_factory=lambda: LoadingConditions(u=0, sigma_v=0)
+        default_factory=lambda: LoadingConditions(u=0)
     )
