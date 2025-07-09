@@ -126,8 +126,9 @@ def create_slip_surface_animation(animation_frames: List[Dict],
         )
         fig.add_trace(initial_surface)
     
-    # Add play/pause buttons
-    fig.update_layout(
+    # Add play/pause buttons only if there are frames
+    if frames and len(frames) > 0:
+        fig.update_layout(
         updatemenus=[{
             'type': 'buttons',
             'showactive': False,
@@ -179,8 +180,11 @@ def create_slip_surface_animation(animation_frames: List[Dict],
                 for i, frame in enumerate(animation_frames)
             ]
         }],
-        frames=frames
-    )
+            frames=frames
+        )
+    else:
+        # If no frames, just return the static figure
+        pass
     
     return fig
 
