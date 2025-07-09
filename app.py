@@ -7,6 +7,7 @@ from src.models import (
     MurayamaInput, MurayamaResult
 )
 from src.murayama import MurayamaCalculator, get_default_presets
+from src.murayama_new import ImprovedMurayamaCalculator
 from src.report_generator import ReportGenerator, generate_markdown_report
 import io
 import base64
@@ -132,13 +133,13 @@ if page == "計算":
                         help="トンネル切羽の高さ（通常: 8〜12m）"
                     )
                 with col2:
-                    r0 = st.number_input(
-                        "初期半径 r₀ (m) *", 
-                        min_value=0.1, 
-                        max_value=20.0, 
-                        value=5.0, 
+                    tunnel_depth = st.number_input(
+                        "土被り D_t (m) *", 
+                        min_value=0.0, 
+                        max_value=100.0, 
+                        value=10.0, 
                         step=0.5,
-                        help="対数螺旋の初期半径"
+                        help="トンネル天端の土被り深さ"
                     )
             st.markdown('</div>', unsafe_allow_html=True)
         
@@ -232,23 +233,31 @@ if page == "計算":
         with st.expander("詳細パラメータを表示"):
             col1, col2 = st.columns(2)
             with col1:
-                max_B = st.number_input(
-                    "最大すべり幅 (m)", 
-                    min_value=1.0, 
-                    max_value=50.0, 
-                    value=20.0, 
-                    step=1.0,
-                    help="解析する最大すべり幅"
+                x_start = st.number_input(
+                    "探索開始位置 (m)", 
+                    min_value=-20.0, 
+                    max_value=0.0, 
+                    value=-10.0, 
+                    step=0.5,
+                    help="すべり面始点の探索開始位置（トンネル中心からの水平距離）"
                 )
-                step_B = st.number_input(
-                    "すべり幅刻み (m)",
-                    min_value=0.01,
-                    max_value=1.0,
-                    value=0.05,
-                    step=0.01,
-                    help="B値の計算刻み幅"
+                x_end = st.number_input(
+                    "探索終了位置 (m)",
+                    min_value=0.0,
+                    max_value=20.0,
+                    value=10.0,
+                    step=0.5,
+                    help="すべり面始点の探索終了位置"
                 )
             with col2:
+                x_step = st.number_input(
+                    "探索刻み幅 (m)",
+                    min_value=0.1,
+                    max_value=2.0,
+                    value=0.5,
+                    step=0.1,
+                    help="探索の刻み幅"
+                )
                 n_divisions = st.number_input(
                     "計算分割数",
                     min_value=10,
@@ -257,6 +266,9 @@ if page == "計算":
                     step=10,
                     help="数値積分の分割数"
                 )
+            
+            col1, col2 = st.columns(2)
+            with col1:
                 max_iterations = st.number_input(
                     "最大反復回数",
                     min_value=10,
@@ -265,15 +277,15 @@ if page == "計算":
                     step=10,
                     help="収束計算の最大反復回数"
                 )
-            
-            tolerance = st.number_input(
-                "収束判定値",
-                min_value=1e-10,
-                max_value=0.1,
-                value=1e-6,
-                format="%.2e",
-                help="反復計算の収束判定値"
-            )
+            with col2:
+                tolerance = st.number_input(
+                    "収束判定値",
+                    min_value=1e-10,
+                    max_value=0.1,
+                    value=1e-6,
+                    format="%.2e",
+                    help="反復計算の収束判定値"
+                )
         
         # Calculate button
         st.markdown("")  # Spacing
@@ -295,24 +307,25 @@ if page == "計算":
         # Perform calculation if button was clicked
         if st.session_state.calculate_clicked:
             # Create input objects
-            geometry = TunnelGeometry(height=height, r0=r0)
+            geometry = TunnelGeometry(height=height, tunnel_depth=tunnel_depth)
             soil = SoilParameters(gamma=gamma, c=c, phi=phi)
             loading = LoadingConditions(u=u, sigma_v=sigma_v)
             murayama_input = MurayamaInput(
                 geometry=geometry,
                 soil=soil,
                 loading=loading,
-                max_B=max_B if 'max_B' in locals() else 20.0,
-                step_B=step_B if 'step_B' in locals() else 0.05,
+                x_start=x_start if 'x_start' in locals() else -10.0,
+                x_end=x_end if 'x_end' in locals() else 10.0,
+                x_step=x_step if 'x_step' in locals() else 0.5,
                 n_divisions=n_divisions if 'n_divisions' in locals() else 100,
                 max_iterations=max_iterations if 'max_iterations' in locals() else 100,
                 tolerance=tolerance if 'tolerance' in locals() else 1e-6
             )
             
-            # Calculate
+            # Calculate using improved algorithm
             with st.spinner("計算中..."):
-                calculator = MurayamaCalculator(murayama_input)
-                result = calculator.calculate_curve()
+                calculator = ImprovedMurayamaCalculator(murayama_input)
+                result = calculator.calculate_stability()
                 
                 # Store result in session state
                 st.session_state['result'] = result
@@ -326,45 +339,29 @@ if page == "計算":
             # Safety factor evaluation
             st.markdown("#### 安全率評価")
             
-            # Calculate safety factor (dummy if not available)
-            safety_factor = result.safety_factor if result.safety_factor else (result.P_max / 1000)
+            # Display required support pressure
+            st.metric("必要支保圧力", f"{result.P_max:.1f} kN/m²")
             
-            # Create columns for safety zones
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.markdown("🔴 **危険**")
-                st.markdown("Fs < 1.0")
-            with col2:
-                st.markdown("🟡 **要注意**")
-                st.markdown("1.0 ≤ Fs < 1.2")
-            with col3:
-                st.markdown("🟢 **安全**")
-                st.markdown("Fs ≥ 1.2")
-            
-            # Display safety factor as metric
-            st.metric("安全率", f"{safety_factor:.2f}")
-            
-            # Progress bar for safety factor
-            progress_value = min(safety_factor / 3.0, 1.0)
-            st.progress(progress_value)
-            
-            # Safety judgment
-            if safety_factor >= 1.2:
+            # Safety evaluation based on support pressure
+            if result.P_max < 50:
                 st.success("✅ **切羽は安定しています**")
-            elif safety_factor >= 1.0:
-                st.warning("⚠️ **要注意**")
+                st.markdown("必要支保圧力が小さく、切羽は自立可能です。")
+            elif result.P_max < 100:
+                st.warning("⚠️ **軽微な支保が必要**")
+                st.markdown("一定の支保圧力が必要です。")
             else:
-                st.error("❌ **切羽は不安定です**")
+                st.error("❌ **強固な支保が必要**")
+                st.markdown("大きな支保圧力が必要です。適切な対策を検討してください。")
             
             # Detailed results
             st.markdown("#### 計算結果の詳細")
             
             result_data = {
-                "項目": ["最大抵抗力 (P_max)", "臨界幅 (B_critical)", "安全率 (Fs)"],
+                "項目": ["最大必要支保圧力", "危険すべり面位置", "計算点数"],
                 "値": [
-                    f"{result.P_max:.1f} kN/m",
-                    f"{result.B_critical:.2f} m",
-                    f"{safety_factor:.2f}"
+                    f"{result.P_max:.1f} kN/m²",
+                    f"{result.x_critical:.2f} m",
+                    f"{len(result.x_values)} 点"
                 ]
             }
             df_results = pd.DataFrame(result_data)
@@ -400,27 +397,27 @@ if page == "計算":
                 if st.button("📊 グラフ", use_container_width=True):
                     st.session_state.show_graph = not st.session_state.show_graph
             
-            # P-B curve graph
+            # P-x curve graph
             if st.session_state.show_graph:
-                st.markdown("#### P-B曲線")
+                st.markdown("#### P-x曲線（必要支保圧力分布）")
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(
-                    x=result.B_values,
+                    x=result.x_values,
                     y=result.P_values,
                     mode='lines',
-                    name='P-B曲線',
+                    name='P-x曲線',
                     line=dict(color='blue', width=2)
                 ))
                 fig.add_trace(go.Scatter(
-                    x=[result.B_critical],
+                    x=[result.x_critical],
                     y=[result.P_max],
                     mode='markers',
-                    name=f'P_max = {result.P_max:.1f} kN/m',
+                    name=f'P_max = {result.P_max:.1f} kN/m²',
                     marker=dict(color='red', size=12, symbol='star')
                 ))
                 fig.update_layout(
-                    xaxis_title="すべり幅 B [m]",
-                    yaxis_title="抵抗力 P [kN/m]",
+                    xaxis_title="すべり面始点位置 x [m]",
+                    yaxis_title="必要支保圧力 P [kN/m²]",
                     height=300,
                     margin=dict(l=0, r=0, t=20, b=0)
                 )

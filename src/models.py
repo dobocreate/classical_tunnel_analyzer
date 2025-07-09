@@ -11,10 +11,11 @@ class TunnelGeometry(BaseModel):
         le=50, 
         description="Tunnel face height H [m]"
     )
-    r0: float = Field(
-        gt=0, 
-        le=20, 
-        description="Initial radius r0 [m]"
+    tunnel_depth: float = Field(
+        ge=0,
+        le=100,
+        default=10.0,
+        description="Tunnel crown depth D_t [m]"
     )
     
     @field_validator('height')
@@ -75,17 +76,23 @@ class MurayamaInput(BaseModel):
     geometry: TunnelGeometry
     soil: SoilParameters
     loading: LoadingConditions
-    max_B: float = Field(
-        gt=0, 
-        le=50, 
-        default=10.0, 
-        description="Maximum sliding width B for analysis [m]"
+    x_start: float = Field(
+        ge=-20.0,
+        le=0.0,
+        default=-10.0,
+        description="Start position for slip surface search (from tunnel center) [m]"
     )
-    step_B: float = Field(
-        gt=0, 
-        le=1, 
-        default=0.05, 
-        description="Step size for B iteration [m]"
+    x_end: float = Field(
+        ge=0.0,
+        le=20.0,
+        default=10.0,
+        description="End position for slip surface search (from tunnel center) [m]"
+    )
+    x_step: float = Field(
+        gt=0,
+        le=2.0,
+        default=0.5,
+        description="Step size for slip surface search [m]"
     )
     n_divisions: int = Field(
         ge=10, 
@@ -109,10 +116,14 @@ class MurayamaInput(BaseModel):
 
 class MurayamaResult(BaseModel):
     """Results from Murayama analysis."""
-    B_values: List[float] = Field(description="Sliding width values [m]")
-    P_values: List[float] = Field(description="Resistance force values [kN/m]")
-    P_max: float = Field(description="Maximum resistance force [kN/m]")
-    B_critical: float = Field(description="Critical sliding width [m]")
+    x_values: List[float] = Field(description="Slip surface start positions [m]")
+    P_values: List[float] = Field(description="Required support pressure values [kN/m²]")
+    P_max: float = Field(description="Maximum required support pressure [kN/m²]")
+    x_critical: float = Field(description="Critical slip surface position [m]")
+    critical_slip_surface: dict = Field(
+        description="Critical slip surface geometry",
+        default_factory=dict
+    )
     safety_factor: Optional[float] = Field(
         default=None, 
         description="Safety factor (if external load provided)"
